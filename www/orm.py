@@ -26,6 +26,12 @@ async def create_pool(loop, **kw):
 			loop=loop
 			)
 
+async def destory_pool():
+	global __pool
+	if __pool is not None:
+		__pool.close()#这个不是协程,不用await
+		await __pool.wait_closed()
+			
 async def select(sql, args, size=None):
 	log(sql, args)
 	global __pool
@@ -37,7 +43,6 @@ async def select(sql, args, size=None):
 		else:
 			rs=await fetchall()
 		await cur.close()
-		__pool.close() #这个不是协程;这个操作和conn.close()是一样的；这样应该不行，不能每次操作都开关一次连接池，还要修改
 		logging.info('rows return: %s' %(len(rs)))
 		return rs
 		
@@ -52,8 +57,6 @@ async def execute(sql, args,autocommit=True):
 			await cur.close()
 		except BaseException as e:
 			raise
-		finally:
-			__pool.close()#
 		return affectedLine
 		
 def create_args_string(num):
