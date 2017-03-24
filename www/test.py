@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 import orm
 import asyncio
+from faker import Faker
 from models import User,Blog,Comment
 '''这里是用户的操作'''
+fake=Faker()
 async def test():
-	await orm.create_pool(loop=loop,user='Moon', password='qwerasdf',database='awesome')	
-	u=User(id='1',name='Test', email='test@example.com', passwd='123123123',image='about:blank',admin=False)
+	await orm.create_pool(loop=loop,user='Moon', password='qwerasdf',database='awesome')#这里只写loop居然也可以
+	u=User(name=fake.name(), email=fake.email(), passwd=fake.state(),image=fake.company(),admin=False)
 	await u.save()
 
 loop=asyncio.get_event_loop()
