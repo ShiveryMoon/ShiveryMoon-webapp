@@ -2,7 +2,7 @@
 import asyncio, logging
 import aiomysql
 #可参考http://lib.csdn.net/snippet/python/47292
-logging.basicConfig(level=logging.DEBUG) #不设置logging级别的话，默认是WARNING
+#logging.basicConfig(level=logging.WARNING) #不设置logging级别的话，默认是WARNING
 ''' 关闭event loop前先关闭连接池
 	即loop.close()前，先进行conn.close() or __pool.close() 因为with (await __pool) as conn
 	当然了，别忘了关闭游标。游标是在连接池之前就已经关闭的。
@@ -40,12 +40,12 @@ async def select(sql, args, size=None):
 		cur=await conn.cursor(aiomysql.DictCursor)
 		await cur.execute(sql.replace('?','%s'), args or ()) #这里execute语句的写法，看有道云笔记
 		if size:
-			rs=await fetchmany(size)
+			rs=await cur.fetchmany(size)
 		else:
-			rs=await fetchall()
+			rs=await cur.fetchall()
 		await cur.close()
 		logging.info('rows return: %s' %(len(rs)))
-		return rs
+		return rs #由于是DictCursor，所以这里rs是个dict
 		
 async def execute(sql, args,autocommit=True):  #conn.commit:Commit changes to stable storage coroutine.
 	log(sql)								   #就是说，只有insert，update，delete这种改动语句才需要commit，select类似于查询语句，没有改动，不需要commit
@@ -204,7 +204,8 @@ class Model(dict,metaclass=ModelMetaclass):
 		if len(rs)==0:
 			return None
 		return cls(**rs[0]) #???
-	'''为什么上面三种find方法需要定义成类方法？'''	
+	'''为什么上面三种find方法需要定义成类方法？
+		答：因为需要用到cls.的属性，呃'''	
 	
 	async def save(self):
 		args=list(map(self.getValueOrDefault,self.__fields__))
