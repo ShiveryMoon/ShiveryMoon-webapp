@@ -3,7 +3,7 @@ import asyncio, logging
 import aiomysql
 #可参考http://lib.csdn.net/snippet/python/47292
 #logging.basicConfig(level=logging.WARNING) #其实orm框架的logging级别设定会被app.py中的设定给覆盖掉
-''' 关闭event loop前先关闭连接池
+''' 关闭event loop前先关闭连接池 
 	即loop.close()前，先进行conn.close() or __pool.close() 因为with (await __pool) as conn
 	当然了，别忘了关闭游标。游标是在连接池之前就已经关闭的。
 	async&await真的可以和@asyncio.coroutine&yield from替换使用，如果有问题，可能是库的版本老了

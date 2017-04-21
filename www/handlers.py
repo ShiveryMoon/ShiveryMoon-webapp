@@ -1,39 +1,25 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from coroweb import get,post
-from aiohttp import web
-from models import User
+
+__author__ = 'Michael Liao'
+
+' url handlers '
+
+import re, time, json, logging, hashlib, base64, asyncio
+
+from coroweb import get, post
+
+from models import User, Comment, Blog, next_id
 
 @get('/')
-async def index(request):
-	users=await User.findAll()
-	return {
-		'__template__':'test.html',
-		'users':users
-	}
-	
-@get('/blog')
-async def blog(request):
-	body='<h1>Awesome: /blog</h1>'
-	return body
-
-@get('/greeting')
-async def greeting(name,request):#request必须是最后获取的，RequestHandler里制作**kw的时候就是这个顺序
-	body='<h1>Awesome: /greeting %s</h1>'%name
-	return body
-
-@get('/input')
-async def input(request):
-	body='<form action="/result" method="post">E-mail: <input type="email" name="user_email" /><input type="submit" /></form>'
-	return body
-
-@post('/result')
-async def result(user_email,request):
-	body='<h1>您输入的邮箱是%s</h1>'%user_email
-	return body
-
-@get('/create_comment')
-async def create_comment(request):
-	body='<h1>Awesome: /create_comment</h1>'
-	return body	
-
-			
+def index(request):#这里不用async，因为这个主页的加载没有任何IO操作
+    summary = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
+    blogs = [
+        Blog(id='1', name='Test Blog', summary=summary, created_at=time.time()-120),
+        Blog(id='2', name='Something New', summary=summary, created_at=time.time()-3600),
+        Blog(id='3', name='Learn Swift', summary=summary, created_at=time.time()-7200)
+    ]
+    return {
+        '__template__': 'blogs.html',
+        'blogs': blogs
+    }
