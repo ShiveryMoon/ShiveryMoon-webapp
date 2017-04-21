@@ -2,7 +2,7 @@
 import asyncio, logging
 import aiomysql
 #可参考http://lib.csdn.net/snippet/python/47292
-#logging.basicConfig(level=logging.WARNING) #不设置logging级别的话，默认是WARNING
+#logging.basicConfig(level=logging.WARNING) #其实orm框架的logging级别设定会被app.py中的设定给覆盖掉
 ''' 关闭event loop前先关闭连接池
 	即loop.close()前，先进行conn.close() or __pool.close() 因为with (await __pool) as conn
 	当然了，别忘了关闭游标。游标是在连接池之前就已经关闭的。
@@ -18,7 +18,7 @@ async def create_pool(loop, **kw):#**kw的逻辑就是，你给我传进来一�
 			host=kw.get('host', 'localhost'),
 			user=kw['user'],
 			password=kw['password'],
-			db=kw['database'],
+			db=kw['db'],
 			port=kw.get('port',3306),
 			charset=kw.get('charset','utf8'),#not utf-8!
 			autocommit=kw.get('autocommit', True),

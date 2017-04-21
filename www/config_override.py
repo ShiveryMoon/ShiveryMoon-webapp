@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 configs={
-	'database':{
+	'db':{
 		'host':'127.0.0.1'
 	}
 }

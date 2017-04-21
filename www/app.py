@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-import logging; logging.basicConfig(level=logging.INFO)
-import asyncio, os, json, time
+import logging; logging.basicConfig(level=logging.INFO)#不设置logging级别的话，默认是WARNING
+import asyncio, os, json, time, orm
 from datetime import datetime
 from aiohttp import web
 from urllib import parse
 from jinja2 import Environment, FileSystemLoader
-import orm
+from config import configs
 from coroweb import add_routes, add_static
 
 def init_jinja2(app, **kw):
@@ -114,7 +114,7 @@ def datetime_filter(t):
 	return u'%s年%s月%s日' % (dt.year, dt.month, dt.day)
 	
 async def init(loop):
-	await orm.create_pool(loop=loop,host='127.0.0.1', port=3306,user='Moon',password='qwerasdf',database='awesome')
+	await orm.create_pool(loop=loop, **configs['db'])
 	app=web.Application(loop=loop,middlewares=[
 		logger_factory,
 		data_factory,
