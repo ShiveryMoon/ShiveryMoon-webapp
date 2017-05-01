@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import logging; logging.basicConfig(level=logging.INFO)#不设置logging级别的话，默认是WARNING
+import logging; #logging.basicConfig(level=logging.INFO)#不设置logging级别的话，默认是WARNING
 import asyncio, os, json, time, orm
 from datetime import datetime
 from aiohttp import web
@@ -7,6 +7,7 @@ from urllib import parse
 from jinja2 import Environment, FileSystemLoader
 from config import configs
 from coroweb import add_routes, add_static
+from handlers import cookie2user,COOKIE_NAME
 
 def init_jinja2(app, **kw):
 	logging.info('init jinja2...')
@@ -43,12 +44,12 @@ async def data_factory(app, handler):
 				return web.HTTPBadRequest(text='Missing Content_Type')
 			content_type=request.content_type.lower()
 			if content_type.startswith('application/json'):
-				request.__data__=await request.json()
+				request.__data__=await request.json() #Read request body decoded as json.
 				if not isinstance(request.__data__,dict):
 					return web.HTTPBadRequest(text='JSON body must be object')
 				logging.info('request json: %s' % request.__data__)
 			elif content_type.startswith(('application/x-www-form-urlencoded','multipart/form-data')):
-				params=await request.post()
+				params=await request.post() #A coroutine that reads POST parameters from request body.
 				request.__data__=dict(**params)
 				logging.info('request form: %s' % request.__data__)
 			else:
@@ -61,6 +62,21 @@ async def data_factory(app, handler):
 			request.__data__=dict()
 		return await handler(request)
 	return parse_data
+	
+async def auth_factory(app,handler):
+	async def auth(request):
+		logging.info('check user: %s %s' % (request.method,request.path))
+		request.__user__=None
+		cookie_str=request.cookies.get(COOKIE_NAME)
+		if cookie_str:
+			user=await cookie2user(cookie_str)
+			if user:
+				logging.info('set current user:%s' % user.email)
+				request.__user__=user
+		if request.path.startswith('/manage/') and (request.__user__ is None or not request.__user__.admin):
+			return web.HTTPFound('/signin')
+		return await handler(request)
+	return auth
 	
 async def response_factory(app, handler):
 	async def response(request):
@@ -81,7 +97,7 @@ async def response_factory(app, handler):
 		if isinstance(r,dict):
 			template=r.get('__template__')
 			if template is None:
-				resp=web.Response(body=json.dumps(r,ensure_ascii=False,default=lambda o:o.__dict__).encode('utf-8'))
+				resp=web.Response(body=json.dumps(r,ensure_ascii=False,default=lambda o:o.__dict__).encode('utf-8')) #dumps是将dict转化成str格式，loads是将str转化成dict格式。(但这里json依旧是json)
 				resp.content_type='application/json;charset=utf-8'
 				return resp
 			else:
@@ -118,7 +134,8 @@ async def init(loop):
 	app=web.Application(loop=loop,middlewares=[
 		logger_factory,
 		data_factory,
-		response_factory
+		response_factory,
+		auth_factory
 	])
 	init_jinja2(app,filters=dict(datetime=datetime_filter))
 	add_routes(app,'handlers')

@@ -7,6 +7,8 @@ import aiomysql
 	即loop.close()前，先进行conn.close() or __pool.close() 因为with (await __pool) as conn
 	当然了，别忘了关闭游标。游标是在连接池之前就已经关闭的。
 	async&await真的可以和@asyncio.coroutine&yield from替换使用，如果有问题，可能是库的版本老了
+	反引号的作用是把一段字符串变成机器能够编译的代码
+	python3已经不支持反引号了，这个文件里的反引号是写给mysql看的。
 '''
 def log(sql, args=()):
 	logging.info('SQL: %s' %(sql))
@@ -152,7 +154,7 @@ class Model(dict,metaclass=ModelMetaclass):
 		value=getattr(self,key,None) #value=self[key],这个self是用户自己创建的，比如u=User(name=...,email=...),而User继承自Model
 		if value is None:  #这个if就是用来获取默认值的，如果用户输入值了，就直接return value
 			field=self.__mappings__[key]
-			if field.default:
+			if field.default: #有毒...如果把admin的default设置成False，那么这里的判断进不来...所以admin别设置默认值了
 				value=field.default() if callable(field.default) else field.default
 				logging.debug('using default value for %s: %s' % (key, str(value)))
 				setattr(self,key,value)
@@ -163,13 +165,13 @@ class Model(dict,metaclass=ModelMetaclass):
 		'''find objects by where clause'''
 		sql=[cls.__select__]
 		if where:
-			sql.append('where')
+			sql.append('where ')
 			sql.append(where)
 		if args is None:
 			args=[]
 		orderBy=kw.get('orderBy',None)
 		if orderBy:
-			sql.append('order by')
+			sql.append('order by ')
 			sql.append(orderBy)
 		limit=kw.get('limit',None)
 		if limit is not None:
@@ -200,7 +202,7 @@ class Model(dict,metaclass=ModelMetaclass):
 	@classmethod
 	async def find(cls,primarykey):
 		'''find object by primary key'''
-		rs=await select('%s where `%s`=?' %(cls.__primary_key__),[primarykey],1)
+		rs=await select('%s where `%s`=?' %(cls.__select__, cls.__primary_key__),[primarykey],1)
 		if len(rs)==0:
 			return None
 		return cls(**rs[0]) #???

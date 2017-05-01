@@ -49,7 +49,7 @@ async def cookie2user(cookie_str):
 		return None
 
 @get('/')
-async def index(request):#这里不用async，因为这个主页的加载没有任何IO操作
+def index(request):#这里不用async，因为这个主页的加载没有任何IO操作
     summary = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
     blogs = [
         Blog(id='1', name='Test Blog', summary=summary, created_at=time.time()-120),
@@ -58,15 +58,14 @@ async def index(request):#这里不用async，因为这个主页的加载没有�
     ]
     return {
         '__template__': 'blogs.html',
-        'blogs': blogs,
-		'__user__':request.__user__
+        'blogs': blogs
     }
 
 @get('/register')
 def register():
-	return {
-		'__template__':'register.html'
-	}
+		return {
+			'__template__':'register.html'
+		}
 		
 @get('/signin')
 def signin():
@@ -120,7 +119,7 @@ async def api_register_user(email,name,passwd):
 		raise APIError('register:failed','email','Email is already in use.')
 	uid=next_id()
 	sha1_passwd='%s:%s' % (uid,passwd)
-	user = User(id=uid, name=name.strip(), email=email, passwd=hashlib.sha1(sha1_passwd.encode('utf-8')).hexdigest(), image='http://www.gravatar.com/avatar/%s?d=mm&s=120' % hashlib.md5(email.encode('utf-8')).hexdigest(), admin=False)
+	user = User(id=uid, name=name.strip(), email=email, passwd=hashlib.sha1(sha1_passwd.encode('utf-8')).hexdigest(), image='http://www.gravatar.com/avatar/%s?d=mm&s=120' % hashlib.md5(email.encode('utf-8')).hexdigest())
 	await user.save()
 	#make session cookie:
 	r=web.Response()
