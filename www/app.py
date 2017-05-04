@@ -9,6 +9,8 @@ from config import configs
 from coroweb import add_routes, add_static
 from handlers import cookie2user,COOKIE_NAME
 
+#每次加载新的url都会把中间件跑一遍的，应该是这样
+
 def init_jinja2(app, **kw):
 	logging.info('init jinja2...')
 	options=dict(

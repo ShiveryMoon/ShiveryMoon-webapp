@@ -43,6 +43,9 @@
             </ul>
             <div class="uk-navbar-flip">
                 <ul class="uk-navbar-nav">
+				{% if __user__.admin %}
+					<li><a href="/manage/blogs/create"><i class="uk-icon-sign-in"></i> 创建日志</a></li>
+				{% endif %}
                 {% if __user__ %}
                     <li class="uk-parent" data-uk-dropdown>
                         <a href="#0"><i class="uk-icon-user"></i> {{ __user__.name }}</a>

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import re, time, json, logging, hashlib, base64, asyncio
+import markdown2
 from coroweb import get, post
 from models import User, Comment, Blog, next_id
 from apis import APIValueError,APIResourceNotFoundError
@@ -11,6 +12,8 @@ _RE_EMAIL = re.compile(r'^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]+){1,4}$'
 _RE_SHA1 = re.compile(r'^[0-9a-f]{40}$')
 COOKIE_NAME='awesession'
 _COOKIE_KEY=configs.session.secret
+
+'''功能函数'''
 
 def user2cookie(user,max_age):
 	'''
@@ -47,21 +50,65 @@ async def cookie2user(cookie_str):
 	except Exception as e:
 		logging.exception(e)
 		return None
-
+		
+def check_admin(request):
+	if request.__user__ is None or request.__user__.admin is None:
+		raise APIPermissionError()
+		
+def get_page_index(page_str):
+	p=1
+	try:
+		p=int(page_str)
+	except ValueError as e:
+		pass
+	if p<1:
+		p=1
+	return p
+	
+def text2html(text):
+	lines=map(lambda s:'<p>%s</p>' % s.replace('&','&amp;').replace('>','&gt;').replace('<','&lt;'),filter(lambda s:s.strip()!='',text.split('\n')))#把几行代码去掉空行后变成list，然后各种replace
+	
+'''功能函数END'''
+'''网页'''		
+		
 @get('/')
 async def index(request):#这里不用async，因为这个主页的加载没有任何IO操作
-    summary = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
-    blogs = [
-        Blog(id='1', name='Test Blog', summary=summary, created_at=time.time()-120),
-        Blog(id='2', name='Something New', summary=summary, created_at=time.time()-3600),
-        Blog(id='3', name='Learn Swift', summary=summary, created_at=time.time()-7200)
-    ]
-    return {
-        '__template__': 'blogs.html',
-        'blogs': blogs,
+	summary = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
+	content = 'You shall not pass!'
+	blogs = [
+		Blog(id='1', user_id='a', user_name='Bob', user_image='a', name='Test Blog', content=content, summary=summary, created_at=time.time()-120),
+		Blog(id='2', user_id='a', user_name='Bob', user_image='a', name='Something New', content=content, summary=summary, created_at=time.time()-3600),
+		Blog(id='3', user_id='a', user_name='Bob', user_image='a', name='Learn Swift', content=content, summary=summary, created_at=time.time()-7200)
+	]
+	return {
+		'__template__': 'blogs.html',
+		'blogs': blogs,
 		'__user__':request.__user__
-    }
+	}
 
+@get('/blog/{id}')
+async def get_blog(id,request):
+	blog=await Blog.find(id)
+	comments=await Comment.findAll('blog_id=?',[id],orderBy='created_at desc')
+	for c in comments:
+		c.html_content=text2html(c.comtent)
+	blog.html_content=markdown2.markdown(blog.content)
+	return{
+		'__template__':'blog.html',
+		'blog':blog,
+		'comments':comments,
+		'__user__':request.__user__
+	}
+		
+@get('/manage/blogs/create')
+def manage_create_blog(request):
+	return{
+		'__template__':'manage_blog_edit.html',
+		'id':'',
+		'action':'/api/blogs',
+		'__user__':request.__user__
+	}
+	
 @get('/register')
 def register():
 	return {
@@ -81,6 +128,9 @@ def signout(request):
 	r.set_cookie(COOKIE_NAME,'-delete-',max_age=0,httponly=True) #这里不能使用del_cookie，因为这是个新定义的r，根本没cookie给你删啊
 	logging.info('user signed out.')
 	return r
+
+'''网页END'''
+'''api'''
 	
 @post('/api/authenticate')	#登录
 async def authenticate(email,passwd):
@@ -130,3 +180,22 @@ async def api_register_user(email,name,passwd):
 	r.body=json.dumps(user,ensure_ascii=False).encode('utf-8')
 	return r
 	
+@get('/api/blogs/{id}')
+async def api_get_blog(id):
+	blog=await Blog.find(id)
+	return blog
+	
+@post('/api/blogs')
+async def api_create_blog(name,summary,content,request):
+	check_admin(request)
+	if not name or not name.strip():
+		raise APIValueError('name','name cannot be empty.')
+	if not summary or not summary.strip():
+		raise APIValueError('summary','summary cannot be empty.')
+	if not content or not content.strip():
+		raise APIValueError('content','content cannot be empty.')
+	blog=Blog(user_id=request.__user__.id,user_name=request.__user__.name,user_image=request.__user__.image,name=name.strip(),summary=summary.strip(),content=content.strip())
+	await blog.save()
+	return blog
+	
+'''api END'''	
