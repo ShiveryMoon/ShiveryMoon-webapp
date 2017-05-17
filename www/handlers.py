@@ -4,9 +4,11 @@ import re, time, json, logging, hashlib, base64, asyncio
 import markdown2
 from coroweb import get, post
 from models import User, Comment, Blog, next_id
-from apis import APIValueError,APIResourceNotFoundError
+from apis import Page,APIValueError,APIResourceNotFoundError
 from config import configs
 from aiohttp import web
+
+#create_at desc的作用就是把数据按照创建时间来排序然后返回
 
 _RE_EMAIL = re.compile(r'^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]+){1,4}$')
 _RE_SHA1 = re.compile(r'^[0-9a-f]{40}$')
@@ -20,7 +22,7 @@ def user2cookie(user,max_age):
 	Generate cookie str by user.
 	build cookie string by:id-expires-sha1
 	'''
-	expires=str(int(time.time()+max_age))
+	expires=str(int(time.time()+max_age))#time.time()返回当前时间的时间戳
 	s='%s-%s-%s-%s' % (user.id,user.passwd,expires,_COOKIE_KEY)
 	L=[user.id,expires,hashlib.sha1(s.encode('utf-8')).hexdigest()]
 	return '-'.join(L)
@@ -72,26 +74,27 @@ def text2html(text):
 '''网页'''		
 		
 @get('/')
-async def index(request):#这里不用async，因为这个主页的加载没有任何IO操作
-	summary = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
-	content = 'You shall not pass!'
-	blogs = [
-		Blog(id='1', user_id='a', user_name='Bob', user_image='a', name='Test Blog', content=content, summary=summary, created_at=time.time()-120),
-		Blog(id='2', user_id='a', user_name='Bob', user_image='a', name='Something New', content=content, summary=summary, created_at=time.time()-3600),
-		Blog(id='3', user_id='a', user_name='Bob', user_image='a', name='Learn Swift', content=content, summary=summary, created_at=time.time()-7200)
-	]
+async def index(request,page='1'):
+	page_index=get_page_index(page)
+	num=await Blog.findNumber('count(id)')
+	page=Page(num,page_index)
+	if num==0:
+		blogs=[]
+	else:
+		blogs=await Blog.findAll(orderBy='created_at desc ',limit=(page.offset,page.limit))
 	return {
 		'__template__': 'blogs.html',
 		'blogs': blogs,
+		'page':page, #这里可能就是要传page实例进去，估计跟pagination有关系
 		'__user__':request.__user__
 	}
 
-@get('/blog/{id}')
+@get('/blog/{id}')#其实不用{id}，也可以从url中获取参数传递给url处理参数，比如下面那个/manage/blogs，用户也可以传page参数，比如这样：/manage/blogs?page=2。两者的区别是，/manage/blogs是一个可以访问的url，因为page有默认值1，但是/blog/这个url不能直接访问
 async def get_blog(id,request):
 	blog=await Blog.find(id)
 	comments=await Comment.findAll('blog_id=?',[id],orderBy='created_at desc')
 	for c in comments:
-		c.html_content=text2html(c.comtent)
+		c.html_content=text2html(c.content)
 	blog.html_content=markdown2.markdown(blog.content)
 	return{
 		'__template__':'blog.html',
@@ -99,7 +102,15 @@ async def get_blog(id,request):
 		'comments':comments,
 		'__user__':request.__user__
 	}
-		
+
+@get('/manage/blogs')
+def manage_blogs(request,page='1'):
+	return {
+		'__template__':'manage_blogs.html',
+		'page_index':get_page_index(page),
+		'__user__':request.__user__
+	}
+	
 @get('/manage/blogs/create')
 def manage_create_blog(request):
 	return{
@@ -107,6 +118,15 @@ def manage_create_blog(request):
 		'id':'',
 		'action':'/api/blogs',
 		'__user__':request.__user__
+	}
+	
+@get('/manage/blogs/edit')
+def manage_update_blog(id,request):
+	return {
+		'__template__':'manage_blog_edit.html',
+		'id':id,
+		'action':'/api/blogs/%s' % id,
+		'__user__':request.__user__		
 	}
 	
 @get('/register')
@@ -125,7 +145,7 @@ def signin():
 def signout(request):
 	referer=request.headers.get('Referer')
 	r=web.HTTPFound(referer or '/')
-	r.set_cookie(COOKIE_NAME,'-delete-',max_age=0,httponly=True) #这里不能使用del_cookie，因为这是个新定义的r，根本没cookie给你删啊
+	r.set_cookie(COOKIE_NAME,'-delete-',max_age=0,httponly=True) #这里不能使用del_cookie，因为这是个新定义的r，根本没cookie给你删啊（也许吧）
 	logging.info('user signed out.')
 	return r
 
@@ -179,13 +199,18 @@ async def api_register_user(email,name,passwd):
 	r.content_type='application/json'
 	r.body=json.dumps(user,ensure_ascii=False).encode('utf-8')
 	return r
-	
-@get('/api/blogs/{id}')
-async def api_get_blog(id):
-	blog=await Blog.find(id)
-	return blog
-	
-@post('/api/blogs')
+
+@get('/api/blogs')  #获取日志列表
+async def api_blogs(page='1'):
+	page_index=get_page_index(page)
+	num=await Blog.findNumber('count(id)')
+	p=Page(num,page_index)
+	if num==0:
+		return dict(page=p,blogs=())
+	blogs=await Blog.findAll(orderBy='created_at desc ', limit=(p.offset,p.limit)) #这里desc后面加个空格...暂时没别的办法
+	return dict(page=p,blogs=blogs)
+
+@post('/api/blogs')  #创建新日志
 async def api_create_blog(name,summary,content,request):
 	check_admin(request)
 	if not name or not name.strip():
@@ -196,6 +221,34 @@ async def api_create_blog(name,summary,content,request):
 		raise APIValueError('content','content cannot be empty.')
 	blog=Blog(user_id=request.__user__.id,user_name=request.__user__.name,user_image=request.__user__.image,name=name.strip(),summary=summary.strip(),content=content.strip())
 	await blog.save()
+	return blog   #你问我为什么这里返回blog实例，response_factory怎么可能会处理一个实例？别忘了在orm框架里就设置过了，这是dict！而且在工厂里变成json返回给客户端，完美！
+	
+@get('/api/blogs/{id}') #单篇日志详情
+async def api_get_blog(id):
+	blog=await Blog.find(id)
 	return blog
+	
+@post('/api/blogs/{id}') #修改日志
+async def api_update_blog(id,name,summary,content,request):
+	check_admin(request)
+	if not name or not name.strip():
+		raise APIValueError('name','name cannot be empty.')
+	if not summary or not summary.strip():
+		raise APIValueError('summary','summary cannot be empty.')
+	if not content or not content.strip():
+		raise APIValueError('content','content cannot be empty.')
+	blog=await Blog.find(id)
+	blog.name=name.strip()
+	blog.summary=summary.strip()
+	blog.content=content.strip()
+	await blog.update()
+	return blog
+	
+@post('/api/blogs/{id}/delete') #删除日志
+async def api_delete_blog(id,request):
+	check_admin(request)
+	blog=await Blog.find(id)
+	await blog.remove()
+	return dict(id=id)
 	
 '''api END'''	

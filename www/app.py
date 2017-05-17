@@ -9,7 +9,7 @@ from config import configs
 from coroweb import add_routes, add_static
 from handlers import cookie2user,COOKIE_NAME
 
-#每次加载新的url都会把中间件跑一遍的，应该是这样
+#每次加载新的url都会把中间件跑一遍的，没错我尤其指的就是auth_factory，每次打开页面就是它来处理cookie判断用户是否登录的
 
 def init_jinja2(app, **kw):
 	logging.info('init jinja2...')
@@ -69,12 +69,12 @@ async def auth_factory(app,handler):
 	async def auth(request):
 		logging.info('check user: %s %s' % (request.method,request.path))
 		request.__user__=None
-		cookie_str=request.cookies.get(COOKIE_NAME)
-		if cookie_str:
-			user=await cookie2user(cookie_str)
-			if user:
+		cookie_str=request.cookies.get(COOKIE_NAME)#从用户的请求中获取cookie
+		if cookie_str:#如果得到了用户的cookie：
+			user=await cookie2user(cookie_str)#用cookie2user函数来返回用户数据
+			if user:#如果用户的cookie确实是我给他发的cookie（表现为user得到了数据）
 				logging.info('set current user:%s' % user.email)
-				request.__user__=user
+				request.__user__=user#把用户数据绑定在用户的请求里
 		if request.path.startswith('/manage/') and (request.__user__ is None or not request.__user__.admin):
 			return web.HTTPFound('/signin')
 		return await handler(request)
@@ -128,7 +128,7 @@ def datetime_filter(t):
 		return u'%s小时前' % (delta // 3600)
 	if delta<604800:
 		return u'%s天前' % (delta // 86400)
-	dt=datatime.fromtimestamp(t)
+	dt=datetime.fromtimestamp(t)
 	return u'%s年%s月%s日' % (dt.year, dt.month, dt.day)
 	
 async def init(loop):

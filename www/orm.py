@@ -3,6 +3,7 @@ import asyncio, logging
 import aiomysql
 #可参考http://lib.csdn.net/snippet/python/47292
 #logging.basicConfig(level=logging.WARNING) #其实orm框架的logging级别设定会被app.py中的设定给覆盖掉
+#正常情况下执行完sql语句后返回的是内tuple外list的二元组合（不知道是否还有别的情况）
 ''' 关闭event loop前先关闭连接池 
 	即loop.close()前，先进行conn.close() or __pool.close() 因为with (await __pool) as conn
 	当然了，别忘了关闭游标。游标是在连接池之前就已经关闭的。
@@ -175,7 +176,7 @@ class Model(dict,metaclass=ModelMetaclass):
 			sql.append(orderBy)
 		limit=kw.get('limit',None)
 		if limit is not None:
-			sql.append('limit')
+			sql.append('limit ')
 			if isinstance(limit,int):
 				sql.append('?')
 				args.append(limit)
@@ -185,14 +186,14 @@ class Model(dict,metaclass=ModelMetaclass):
 			else:
 				raise ValueError('Invalid limit value: %s' %str(limit))
 		rs=await select(''.join(sql),args)
-		return [cls(**r) for r in rs]
+		return [cls(**r) for r in rs]#懂了。就好像user=User(id=....)后user是User的实例一样，这里返回去的也必须是cls的实例，这样才可以用cls里的各种函数
 		
 	@classmethod
 	async def findNumber(cls,selectField,where=None,args=None):
 		'''find number by select and where.'''
 		sql=['select %s __num__ from `%s`' %(selectField, cls.__table__)]
 		if where:
-			sql.append('where')
+			sql.append('where ')
 			sql.append(where)
 		rs=await select(''.join(sql),args,1)
 		if len(rs)==0:
@@ -205,7 +206,7 @@ class Model(dict,metaclass=ModelMetaclass):
 		rs=await select('%s where `%s`=?' %(cls.__select__, cls.__primary_key__),[primarykey],1)
 		if len(rs)==0:
 			return None
-		return cls(**rs[0]) #???
+		return cls(**rs[0]) #见上
 	'''为什么上面三种find方法需要定义成类方法？
 		答：因为需要用到cls.的属性，呃'''	
 	
