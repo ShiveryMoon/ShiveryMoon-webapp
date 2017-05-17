@@ -43,10 +43,10 @@
             </ul>
             <div class="uk-navbar-flip">
                 <ul class="uk-navbar-nav">
-				{% if __user__.admin %}
-					<li><a href="/manage/blogs"><i class="uk-icon-edit"></i> 日志列表</a></li>
-				{% endif %}
                 {% if __user__ %}
+					{% if __user__.admin %}
+					<li><a href="/manage/blogs"><i class="uk-icon-edit"></i> 管理列表</a></li>
+					{% endif %}
                     <li class="uk-parent" data-uk-dropdown>
                         <a href="#0"><i class="uk-icon-user"></i> {{ __user__.name }}</a>
                         <div class="uk-dropdown uk-dropdown-navbar">

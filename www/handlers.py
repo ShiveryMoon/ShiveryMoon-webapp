@@ -8,7 +8,7 @@ from apis import Page,APIValueError,APIResourceNotFoundError
 from config import configs
 from aiohttp import web
 
-#create_at desc的作用就是把数据按照创建时间来排序然后返回
+#created_at desc的作用就是把数据按照创建时间来排序然后返回
 
 _RE_EMAIL = re.compile(r'^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]+){1,4}$')
 _RE_SHA1 = re.compile(r'^[0-9a-f]{40}$')
@@ -69,6 +69,7 @@ def get_page_index(page_str):
 	
 def text2html(text):
 	lines=map(lambda s:'<p>%s</p>' % s.replace('&','&amp;').replace('>','&gt;').replace('<','&lt;'),filter(lambda s:s.strip()!='',text.split('\n')))#把几行代码去掉空行后变成list，然后各种replace
+	return ''.join(lines)
 	
 '''功能函数END'''
 '''网页'''		
@@ -128,6 +129,26 @@ def manage_update_blog(id,request):
 		'action':'/api/blogs/%s' % id,
 		'__user__':request.__user__		
 	}
+
+@get('/manage/')
+def manage():
+	return 'redirect:/manage/comments'
+	
+@get('/manage/comments')
+def manage_comments(request,page='1'):
+	return {
+		'__template__':'manage_comments.html',
+		'page_index':get_page_index(page),
+		'__user__':request.__user__
+	}
+	
+@get('/manage/users')
+def manage_users(request,page='1'):
+	return {
+		'__template__':'manage_users.html',
+		'page_index':get_page_index(page),
+		'__user__':request.__user__
+	}
 	
 @get('/register')
 def register():
@@ -141,7 +162,7 @@ def signin():
 		'__template__':'signin.html'
 	}
 	
-@get('/signout')
+@get('/signout')#让用户退出登录，就是删除cookie
 def signout(request):
 	referer=request.headers.get('Referer')
 	r=web.HTTPFound(referer or '/')
@@ -176,6 +197,18 @@ async def authenticate(email,passwd):
 	r.content_type='application/json'
 	r.body=json.dumps(user,ensure_ascii=False).encode('utf-8')
 	return r
+
+@get('/api/users')
+async def api_get_users(request,page='1'):
+	page_index=get_page_index(page)
+	num=await User.findNumber('count(id)')
+	p=Page(num, page_index)
+	if num == 0:
+		return dict(page=p, users=())
+	users=await User.findAll(orderBy='created_at desc ',limit=(p.offset,p.limit))
+	for u in users:
+		u.passwd='******'
+	return dict(page=p,users=users)
 	
 @post('/api/users') #注册
 async def api_register_user(email,name,passwd):
@@ -251,4 +284,41 @@ async def api_delete_blog(id,request):
 	await blog.remove()
 	return dict(id=id)
 	
+@get('/api/comments')#获取评论
+async def api_comments(request,page='1'):
+	page_index=get_page_index(page)
+	num=await Comment.findNumber('count(id)')
+	p=Page(num,page_index)
+	if num==0:
+		return dict(page=p,comments=())
+	comments=await Comment.findAll(orderBy='created_at desc ',limit=(p.offset,p.limit))
+	for comment in comments:
+		blog=await Blog.find(comment.blog_id)
+		comment.blog_name=blog.name
+	return dict(page=p,comments=comments)	
+	
+@post('/api/blogs/{id}/comments')#添加评论
+async def api_create_comments(id,content,request):
+	user=request.__user__
+	if user is None:
+		raise APIPermissionError('Please signin first.')
+	if not content or not content.strip():
+		raise APIValueError('content')
+	blog=await Blog.find(id)
+	if blog is None:
+		raise APIResourceNotFoundError('Blog')
+	comment=Comment(blog_id=blog.id,user_id=user.id,user_name=user.name,user_image=user.image,content=content.strip())
+	await comment.save()
+	return comment
+	
+@post('/api/comments/{id}/delete')#删除评论
+async def api_delete_comments(id,request):
+	check_admin(request)
+	c=await Comment.find(id)
+	if c is None:
+		raise APIResourceNotFoundError('Comment')
+	await c.remove()
+	return dict(id=id)
+	
+
 '''api END'''	
