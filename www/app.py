@@ -1,3 +1,4 @@
+#!/usr/bin python3
 # -*- coding: utf-8 -*-
 import logging; #logging.basicConfig(level=logging.INFO)#不设置logging级别的话，默认是WARNING
 import asyncio, os, json, time, orm
