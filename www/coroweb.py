@@ -1,3 +1,4 @@
+#!/usr/bin python3
 # -*- coding: utf-8 -*-
 #https://github.com/moling3650/mblog/blob/master/www/app/frame/__init__.py
 import asyncio
