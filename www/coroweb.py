@@ -14,21 +14,21 @@ def request(path,*,method):
 		@functools.wraps(func)
 		def wrapper(*args, **kw):#原函数有什么，就给他原样传回去，我们并不需要动传来的参数
 			return func(*args, **kw)
-		wrapper.__method__=method
+		wrapper.__method__=method#就只是给wrap加两个属性
 		wrapper.__route__=path
 		return wrapper
 	return decorator
 	
 get=functools.partial(request, method='GET')#大概的意思是说，创建一个新函数get，它从request函数继承，并且预先传一个method参数
-post=functools.partial(request, method='POST')
-put=functools.partial(request, method='PUT')
+post=functools.partial(request, method='POST')#这他妈不就是偏函数吗
+put=functools.partial(request, method='PUT')#偏函数：把一个函数的某些参数给固定住（也就是设置默认值），返回一个新的函数，调用这个新函数会更简单。
 delete=functools.partial(request, method='DELETE')
 
 class RequestHandler(object):
 	def __init__(self, func):
-		self._func=asyncio.coroutine(func)
+		self._func=asyncio.coroutine(func) #就是老版的async def，把参数变成协程
 		
-	#把url函数需要的参数找出来存到required_args里，然后从request里根据required_args来抽出材料搭配制作kw，再判断数据是否符合要求，最后把kw直接用作func参数
+	#把url函数需要的参数找出来存到required_args(以OrderedDict形式)里，然后从request里根据required_args来抽出材料搭配制作kw，再判断数据是否符合要求，最后把kw直接用作func参数
 	async def __call__(self, request):
 		required_args=inspect.signature(self._func).parameters
 		logging.info('required args: %s' % required_args)
@@ -64,9 +64,12 @@ def add_routes(app,module_name):
 				app.router.add_route(func.__method__, func.__route__, RequestHandler(func))
 				
 def add_static(app):
-		path=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
-		app.router.add_static('/static/', path)
-		logging.info('add static %s => %s' %('/static/', path))
+		path1=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+		app.router.add_static('/static/', path1)
+		logging.info('add static %s => %s' %('/static/', path1))
+		path2=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'avatar')
+		app.router.add_static('/avatar/',path2)
+		logging.info('add static %s => %s' %('/avatar/', path2))
 			
 			
 			

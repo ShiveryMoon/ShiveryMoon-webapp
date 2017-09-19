@@ -33,6 +33,9 @@ def init_jinja2(app, **kw):
 			env.filters[name]=f
 	app['__templating__']=env
 	
+	'''
+	中间件参数中第二个handler，也可以叫别的名字，它只是一个代号，这第二个参数是由aiohttp来把从add_routes函数里注册好的url处理函数传进去的。
+	'''
 async def logger_factory(app, handler):
 	async def logger(request):
 		logging.info('Request: %s %s' % (request.method, request.path))
@@ -78,13 +81,18 @@ async def auth_factory(app,handler):
 				request.__user__=user#把用户数据绑定在用户的请求里
 		if request.path.startswith('/manage/') and (request.__user__ is None or not request.__user__.admin):
 			return web.HTTPFound('/signin')
+		if request.path.startswith('/setavatar') and (request.__user__ is None):
+			return web.HTTPFound('/signin')
 		return await handler(request)
 	return auth
 	
 async def response_factory(app, handler):
 	async def response(request):
 		logging.info('Response handler...')
-		r=await handler(request)
+		r=await handler(request) 
+		'''我靠看到这行没有？这就是为什么从逻辑上来说data工厂函数是在url处理函数之前运行，而response工厂函数是在url处理函数之后运行。
+		其实本质上来说两者没区别，都是url处理函数的装饰函数，是同一时间运行的。只不过response工厂函数要等url处理函数先运行完。
+		所以从一维上来看，中间件就是一个在数轴上从两头把url处理函数包裹起来的功能拓展包，中间件既可以在前面运行，也可以在后面运行（而装饰器本来就是这样运作的）'''
 		if isinstance(r,web.StreamResponse):
 			return r
 		if isinstance(r,bytes):

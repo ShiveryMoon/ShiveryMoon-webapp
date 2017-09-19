@@ -7,6 +7,7 @@ from models import User, Comment, Blog, next_id
 from apis import Page,APIValueError,APIResourceNotFoundError
 from config import configs
 from aiohttp import web
+import base64
 
 #created_at desc的作用就是把数据按照创建时间来排序然后返回
 
@@ -24,7 +25,7 @@ def user2cookie(user,max_age):
 	'''
 	expires=str(int(time.time()+max_age))#time.time()返回当前时间的时间戳
 	s='%s-%s-%s-%s' % (user.id,user.passwd,expires,_COOKIE_KEY)
-	L=[user.id,expires,hashlib.sha1(s.encode('utf-8')).hexdigest()]
+	L=[user.id,expires,hashlib.sha1(s.encode('utf-8')).hexdigest()]#如果没有hexdigest，输出的就是一个sha1对象，需要再调用sha1对象的hexdigest方法来输出哈希值
 	return '-'.join(L)
 	
 async def cookie2user(cookie_str):
@@ -74,7 +75,7 @@ def text2html(text):
 '''功能函数END'''
 '''网页'''		
 		
-@get('/')
+@get('/') #index=get('/',method='GET')(index)
 async def index(request,page='1'):
 	page_index=get_page_index(page)
 	num=await Blog.findNumber('count(id)')
@@ -86,8 +87,8 @@ async def index(request,page='1'):
 	return {
 		'__template__': 'blogs.html',
 		'blogs': blogs,
-		'page':page, #这里可能就是要传page实例进去，估计跟pagination有关系
-		'__user__':request.__user__
+		'page':page, #注意basehtml的顶端定义的函数
+		'__user__':request.__user__,
 	}
 
 @get('/blog/{id}')#其实不用{id}，也可以从url中获取参数传递给url处理参数，比如下面那个/manage/blogs，用户也可以传page参数，比如这样：/manage/blogs?page=2。两者的区别是，/manage/blogs是一个可以访问的url，因为page有默认值1，但是/blog/这个url不能直接访问
@@ -169,6 +170,13 @@ def signout(request):
 	r.set_cookie(COOKIE_NAME,'-delete-',max_age=0,httponly=True) #这里不能使用del_cookie，因为这是个新定义的r，根本没cookie给你删啊（也许吧）
 	logging.info('user signed out.')
 	return r
+	
+@get('/setavatar')
+def setavatar(request):
+	return {
+		'__template__':'setavatar.html',
+		'__user__':request.__user__
+	}
 
 '''网页END'''
 '''api'''
@@ -196,7 +204,7 @@ async def authenticate(email,passwd):
 	user.passwd='******'
 	r.content_type='application/json'
 	r.body=json.dumps(user,ensure_ascii=False).encode('utf-8')
-	return r
+	return r#post的处理函数也有返回数据，这个数据是返还给ajax的回调函数的。
 
 @get('/api/users')
 async def api_get_users(request,page='1'):
@@ -320,5 +328,30 @@ async def api_delete_comments(id,request):
 	await c.remove()
 	return dict(id=id)
 	
+@post('/api/avatar')#添加头像
+async def api_setavatar(avatar,request):
+	user_id=request.__user__.id
+	user=await User.find(user_id)
+	if 'data:image/jpeg;base64,' in avatar:
+		base64_avatar=avatar.replace('data:image/jpeg;base64,','')
+		user_id=user_id+'.jpg'
+	if 'data:image/png;base64,' in avatar:
+		base64_avatar=avatar.replace('data:image/png;base64,','')
+		user_id=user_id+'.png'
+	if 'data:image/gif;base64,' in avatar:
+		base64_avatar=avatar.replace('data:image/gif;base64,','')
+		user_id=user_id+'.gif'
+	dir_path='/srv/awesome/www/avatar/%s'%user_id
+	avatar=base64.b64decode(base64_avatar)
+	with open(dir_path,'wb') as i:
+		i.write(avatar)
+	src_path='/avatar/%s' % user_id
+	user.image=src_path
+	await user.update()
+	return dict(id=user_id)
 
 '''api END'''	
+
+
+
+

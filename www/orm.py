@@ -5,8 +5,9 @@ import aiomysql
 #可参考http://lib.csdn.net/snippet/python/47292
 #logging.basicConfig(level=logging.WARNING) #其实orm框架的logging级别设定会被app.py中的设定给覆盖掉
 #正常情况下执行完sql语句后返回的是内tuple外list的二元组合（不知道是否还有别的情况）
-''' 关闭event loop前先关闭连接池 
-	即loop.close()前，先进行conn.close() or __pool.close() 因为with (await __pool) as conn
+''' 
+	关闭event loop前先关闭连接池 
+	即loop.close()前，先进行conn.close() or __pool.close() （因为with (await __pool) as conn）
 	当然了，别忘了关闭游标。游标是在连接池之前就已经关闭的。
 	async&await真的可以和@asyncio.coroutine&yield from替换使用，如果有问题，可能是库的版本老了
 	反引号的作用是把一段字符串变成机器能够编译的代码
@@ -54,7 +55,7 @@ async def select(sql, args, size=None):
 async def execute(sql, args,autocommit=True):  #conn.commit:Commit changes to stable storage coroutine.
 	log(sql)								   #就是说，只有insert，update，delete这种改动语句才需要commit，select类似于查询语句，没有改动，不需要commit
 	global __pool							   #先cur.close(),再conn.commit(),再conn.close()
-	with (await __pool) as conn:
+	with (await __pool) as conn:				#但是话说回来了，正式上线的网站不需要关闭和数据库的连接，所以我也没有写conn.close()的代码。commit也没写是因为autocommit了
 		try:
 			cur=await conn.cursor()
 			await cur.execute(sql.replace('?','%s'),args)
@@ -82,7 +83,7 @@ class Field(object):
 		
 class StringField(Field):
 	def __init__(self, name=None, primary_key=False, default=None, ddl='varchar(100)'):
-		super().__init__(name, ddl, primary_key, default)
+		super().__init__(name, ddl, primary_key, default) #This does the same thing: super(StringField,self).__init__()
 	
 class BooleanField(Field):
 	def __init__(self, name=None, default=None):
@@ -187,8 +188,9 @@ class Model(dict,metaclass=ModelMetaclass):
 			else:
 				raise ValueError('Invalid limit value: %s' %str(limit))
 		rs=await select(''.join(sql),args)
-		return [cls(**r) for r in rs]#懂了。就好像user=User(id=....)后user是User的实例一样，这里返回去的也必须是cls的实例，这样才可以用cls里的各种函数
-		
+		return [cls(**r) for r in rs]#懂了。就好像user=User(id=....)后user是User的实例一样，这里返回去的也必须是元类的实例，这样才可以用cls里的各种函数
+		#这种返回cls的函数。。。他们返回的居然是类，不是实例。。。这里返回的list里是一堆类？都是同一种类，名字也一样，但是内容不一样。。。
+		#其实这里就直接看作返回了一堆dict（{'id'='','name'=''...}）就行了。。而这个dict同时又是个类，所以可以用点(.)来获取属性
 	@classmethod
 	async def findNumber(cls,selectField,where=None,args=None):
 		'''find number by select and where.'''
@@ -207,10 +209,16 @@ class Model(dict,metaclass=ModelMetaclass):
 		rs=await select('%s where `%s`=?' %(cls.__select__, cls.__primary_key__),[primarykey],1)
 		if len(rs)==0:
 			return None
-		return cls(**rs[0]) #见上
+		return cls(**rs[0]) 
 	'''为什么上面三种find方法需要定义成类方法？
-		答：因为需要用到cls.的属性，呃'''	
+	   答：因为需要用到cls.的属性，呃
+	'''	
 	
+	'''
+	懂了懂了，下面这三个self的方法，类就不能用，只有实例可以使用。比如注册用户的时候，用户的数据是储存在user=User()里的，当然可以user.save()了，但你见过User.save()的嘛？
+	而且上面三个方法，都是查找类型的，查找当然不需要创建一个实例了，又不需要改动，创建实例干嘛。
+	所以其实上面三个函数返回实例应该也是可以的，但是没必要，从逻辑上来说画蛇添足了
+	'''
 	async def save(self):
 		args=list(map(self.getValueOrDefault,self.__fields__))
 		args.append(self.getValueOrDefault(self.__primary_key__))
