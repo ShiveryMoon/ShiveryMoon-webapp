@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 import time,uuid
 from orm import Model,StringField,BooleanField,FloatField,TextField
-''' 用户输入的东西并不会进入各种Field里面。Field类是管理者用来给各个列名设置属性的工具
+''' 用户输入的东西并不会存入各种Field里面。Field类是管理者用来给各个列名设置属性的工具
 	比如管理者可以给id这列规定默认值，规定是否为主键，而这些规定的操作在model.py里
 	至于用户，他们根本不用关心给每个列名设置属性，他们只要给对应列名输入数据就行了，比如给id赋1，给name赋Tom。
 	用户输入的数据由Model的init(**kw)来接收，用self[key]就可以获取用户输入的数据。
 '''
+#永远别忘了，这里面所有诞生出来的实例或者类本身都是dict！
 def next_id():
 	return '%015d%s000' % (int(time.time() * 1000), uuid.uuid4().hex)
 	

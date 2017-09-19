@@ -7,7 +7,7 @@
 <script>
 
 var
-    ID = '{{ id }}', <!--这里的双大括号，是让后端url处理函数来填充的，属于MVC？-->
+    ID = '{{ id }}', <!--这里的双大括号，是让后端url处理函数来填充的。属于MVC？-->
     action = '{{ action }}';
 
 function initVM(blog) {
@@ -39,7 +39,7 @@ $(function () {
                 return fatal(err);
             }
             $('#loading').hide();
-            initVM(blog);
+            initVM(blog);<!--这个blog本身就是dict，所以下面不需要写成v-model='blog.name'-->
         });
     }
     else {

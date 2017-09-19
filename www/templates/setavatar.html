@@ -1,0 +1,86 @@
+{% extends '__base__.html' %}
+
+{% block title %}设置头像{% endblock %}
+
+{% block beforehead %}
+
+<script>
+var image=false;
+var file=false;
+$(function(){
+	var vm=new Vue({
+		el:'#vm',
+		methods:{
+			submit:function(event){
+				event.preventDefault();
+				if (!image){
+					alert('还未上传图片！');
+					return;
+				}
+				if (image.length>1000000){
+					alert('抱歉，目前上传图片不得大于0.67M，站长正在想办法 ヽ(。>д<)ｐ')
+					return;
+				}
+				$.ajax({
+					url:'/api/avatar',
+					type:'POST',
+					data:{avatar:image},
+					cache:false
+				}).done(function (data){
+					alert('上传完成');
+					return location.assign('/');
+				}).fail(function (xhr,status){
+					alert('失败：'+xhr.status+'，原因：'+status);
+				});
+			}
+		}
+	});
+	$('#vm').show();
+	var fileInput=document.getElementById('test-image-file');
+	var info=document.getElementById('test-file-info');
+	var preview=document.getElementById('test-image-preview');	
+	fileInput.addEventListener('change',function(){
+		preview.style.backgroundImage='';
+		if (!fileInput.value){
+			info.innerHTML='没有选择文件';
+			return;
+		}
+		file=fileInput.files[0];
+		info.innerHTML='文件：'+file.name+'<br>'+'大小：'+(file.size/1024).toFixed(2)+'KB';
+		if (file.type !=='image/jpeg' && file.type !=='image/png' && file.type!=='image/gif'){
+			alert('不是有效的图片文件！');
+			info.innerHTML+='<br>'+'请上传后缀名为jpg/png/gif的文件';
+			return;
+		}
+		var reader=new FileReader();
+		reader.onload=function(e){
+			image=e.target.result;
+			preview.style.backgroundImage='url('+image+')';
+		};
+		reader.readAsDataURL(file);
+	});
+});
+
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="uk-width-2-6">
+    <h1>设置头像</h1>
+	<br>
+	<form id="vm" v-on="submit: submit" class="uk-form uk-form-stacked">
+		<p>图片预览：</p>
+		<p><div id="test-image-preview" style="border: 1px solid #ccc; width: 100%; height: 200px; background-size: contain; background-repeat: no-repeat; background-position: center center;"></div></p>
+		<p>
+			<input type="file" id="test-image-file" name="test">
+		</p>
+		<p id="test-file-info"></p>
+        <div class="uk-form-row">
+			<button type="submit" class="uk-button uk-button-primary"><i class="uk-icon-smile-o"></i> 上传头像</button>
+        </div>
+	</form>
+</div>
+
+{% endblock %}

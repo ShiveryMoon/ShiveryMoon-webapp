@@ -11,11 +11,11 @@
 
 {% block content %}
 
-    <div class="uk-width-medium-3-4">
+    <div class="uk-width-medium-3-4 ">
     {% for blog in blogs %}
-        <article class="uk-article">
+        <article data-uk-scrollspy="{cls:'uk-animation-fade'}" class="uk-article">
             <h2><a href="/blog/{{ blog.id }}">{{ blog.name }}</a></h2>
-            <p class="uk-article-meta">发表于{{ blog.created_at|datetime }}</p>
+            <p class="uk-article-meta">发表于{{ blog.created_at|datetime }}</p> <!-- 这个是jinja框架的filter的用法 -->
             <p>{{ blog.summary }}</p>
             <p><a href="/blog/{{ blog.id }}">继续阅读 <i class="uk-icon-angle-double-right"></i></a></p>
         </article>
@@ -25,6 +25,15 @@
     </div>
 
     <div class="uk-width-medium-1-4">
+		{% if __user__ %}
+	    <div class="uk-panel uk-panel-box">
+            <div class="uk-text-center">
+                <img class="uk-border-circle" width="120" height="120" src="{{ __user__.image }}">
+				<h3 class='uk-text-large uk-text-bold'>Welcome</h3>
+                <h2 class='uk-text-success'>{{ __user__.name }}</h2>
+            </div>
+        </div>
+		{% endif %}
         <div class="uk-panel uk-panel-header">
             <h3 class="uk-panel-title">友情链接</h3>
             <ul class="uk-list uk-list-line">

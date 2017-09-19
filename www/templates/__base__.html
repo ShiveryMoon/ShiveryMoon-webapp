@@ -39,7 +39,7 @@
             <ul class="uk-navbar-nav">
                 <li data-url="blogs"><a href="/"><i class="uk-icon-home"></i> 日志</a></li>
                 <li><a target="_blank" href="http://www.liaoxuefeng.com/wiki/0014316089557264a6b348958f449949df42a6d3a2e542c000"><i class="uk-icon-book"></i> 教程</a></li>
-                <li><a target="_blank" href="https://github.com/michaelliao/awesome-python3-webapp"><i class="uk-icon-code"></i> 源码</a></li>
+                <li><a target="_blank" href="https://github.com/ShiveryMoon/ShiveryMoon-webapp"><i class="uk-icon-code"></i> 源码</a></li>
             </ul>
             <div class="uk-navbar-flip">
                 <ul class="uk-navbar-nav">
@@ -50,9 +50,10 @@
                     <li class="uk-parent" data-uk-dropdown>
                         <a href="#0"><i class="uk-icon-user"></i> {{ __user__.name }}</a>
                         <div class="uk-dropdown uk-dropdown-navbar">
-                            <ul class="uk-nav uk-nav-navbar">
+                            <div class="uk-dropdown-width-1"><ul class="uk-nav uk-nav-navbar">
+								<li><a href="/avatar"><i class="uk-icon-smile-o"></i> 设置头像</a></li>
                                 <li><a href="/signout"><i class="uk-icon-sign-out"></i> 登出</a></li>
-                            </ul>
+                            </ul></div>
                         </div>
                     </li>
                 {% else %}

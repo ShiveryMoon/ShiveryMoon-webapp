@@ -82,7 +82,7 @@ $(function() {
             <tbody>
                 <tr v-repeat="blog: blogs" >
                     <td>
-                        <a v-attr="href: '/blog/'+blog.id" v-text="blog.name"></a>    <!--这些blog对象都是从后端原封不动传过来的，所以拥有自己的属性，跟后端一样-->
+                        <a v-attr="href: '/blog/'+blog.id" v-text="blog.name"></a>    
                     </td>
                     <td>
                         <span v-text="blog.user_name"></span>
